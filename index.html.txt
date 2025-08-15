@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>YouTube – Trùng Khánh Phát Triển</title>
+<style>
+body { margin:0; padding:0; font-family: Arial, sans-serif; background:#121212; color:#fff; }
+header { background:#ff0000; padding:10px 20px; text-align:center; }
+header h1 { margin:0; font-size:24px; }
+.search-bar { display:flex; justify-content:center; margin:20px; }
+.search-bar input { width:70%; max-width:300px; padding:10px; border:none; border-radius:4px 0 0 4px; }
+.search-bar button { padding:10px 20px; border:none; background:#ff0000; color:#fff; cursor:pointer; border-radius:0 4px 4px 0; }
+#player { width:100%; max-width:800px; height:calc(800*9/16); margin:0 auto 20px; }
+#miniPlayer { position:fixed; bottom:20px; right:20px; width:200px; height:113px; display:none; z-index:9999; cursor:move; border:2px solid #ff0000; border-radius:8px; background:#000; }
+.video-list { display:flex; flex-wrap:wrap; justify-content:center; gap:20px; padding:20px; }
+.video-item { width:45%; max-width:300px; background:#222; padding:10px; border-radius:8px; cursor:pointer; }
+.video-item img { width:100%; border-radius:6px; }
+.video-item h3 { font-size:16px; margin:5px 0; }
+@media(max-width:500px){
+  .video-item { width:100%; }
+  #player { height:calc(100vw*9/16); }
+}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>YouTube – Trùng Khánh Phát Triển</h1>
+</header>
+
+<div class="search-bar">
+  <input type="text" id="searchQuery" placeholder="Nhập từ khóa tìm kiếm...">
+  <button onclick="searchVideos()">Tìm kiếm</button>
+</div>
+
+<div id="player"></div>
+<div id="miniPlayer"></div>
+<div class="video-list" id="videoList"></div>
+
+<script src="https://www.youtube.com/iframe_api"></script>
+<script>
+let player;
+let miniPlayer = document.getElementById('miniPlayer');
+let videoList = document.getElementById('videoList');
+let nextPageToken = '';
+const API_KEY = 'YOUR_YOUTUBE_API_KEY'; // Thay bằng API key của bạn
+
+// Tạo YouTube Player lớn
+function onYouTubeIframeAPIReady(){
+  player = new YT.Player('player', {
+    height: '450',
+    width: '800',
+    videoId: '',
+    playerVars: { autoplay:0, controls:1, modestbranding:1 }
+  });
+}
+
+// Load video lớn và mini
+function loadVideo(videoId){
+  if(player && videoId) player.loadVideoById(videoId);
+  miniPlayer.innerHTML = `<iframe width="100%" height="100%" src="https://www.youtube.com/embed/${videoId}?autoplay=1&controls=1" frameborder="0" allowfullscreen></iframe>`;
+}
+
+// Tìm kiếm video
+async function searchVideos(pageToken=''){
+  const query = document.getElementById('searchQuery').value;
+  if(!query){ alert("Nhập từ khóa!"); return; }
+  if(!pageToken) videoList.innerHTML=''; // Xóa danh sách cũ nếu lần đầu
+  const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&q=${encodeURIComponent(query)}&maxResults=12&pageToken=${pageToken}&key=${API_KEY}`;
+  try{
+    const response = await fetch(url);
+    const data = await response.json();
+    nextPageToken = data.nextPageToken || '';
+    if(data.items && data.items.length>0){
+      data.items.forEach(video=>{
+        const div = document.createElement('div');
+        div.className = 'video-item';
+        div.innerHTML = `
+          <img src="${video.snippet.thumbnails.medium.url}" alt="${video.snippet.title}">
+          <h3>${video.snippet.title}</h3>`;
+        div.onclick = ()=>loadVideo(video.id.videoId);
+        videoList.appendChild(div);
+      });
+    } else {
+      alert("Không tìm thấy video!");
+    }
+  } catch(err){
+    console.error(err);
+    alert("Lỗi khi tìm kiếm video!");
+  }
+}
+
+// Infinite scroll
+window.onscroll = function(){
+  if(window.innerHeight + window.scrollY >= document.body.scrollHeight - 200){
+    if(nextPageToken){
+      searchVideos(nextPageToken);
+    }
+  }
+  // PiP mini player hiện khi scroll
+  if(window.scrollY > 300){
+    miniPlayer.style.display='block';
+  } else {
+    miniPlayer.style.display='none';
+  }
+};
+
+// Kéo thả mini player
+let isDragging = false, offsetX, offsetY;
+miniPlayer.addEventListener('mousedown', e=>{
+  isDragging = true;
+  offsetX = e.offsetX;
+  offsetY = e.offsetY;
+});
+document.addEventListener('mousemove', e=>{
+  if(isDragging){
+    miniPlayer.style.right='auto';
+    miniPlayer.style.left=(e.clientX-offsetX)+'px';
+    miniPlayer.style.top=(e.clientY-offsetY)+'px';
+  }
+});
+document.addEventListener('mouseup', e=>{
+  isDragging=false;
+});
+</script>
+</body>
+</html>
