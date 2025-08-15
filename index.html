@@ -3,30 +3,77 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>YouTube – Trùng Khánh Phát Triển</title>
+<title>YouTube Freemium – Trùng Khánh</title>
 <style>
-body { margin:0; padding:0; font-family: Arial, sans-serif; background:#121212; color:#fff; }
-header { background:#ff0000; padding:10px 20px; text-align:center; }
+body { font-family: Arial; margin:0; padding:0; background:#121212; color:#fff; }
+header { background:#ff0000; display:flex; align-items:center; padding:10px 20px; }
+header img { height:36px; margin-right:12px; }
 header h1 { margin:0; font-size:24px; }
-.search-bar { display:flex; justify-content:center; margin:20px; }
-.search-bar input { width:70%; max-width:300px; padding:10px; border:none; border-radius:4px 0 0 4px; }
-.search-bar button { padding:10px 20px; border:none; background:#ff0000; color:#fff; cursor:pointer; border-radius:0 4px 4px 0; }
-#player { width:100%; max-width:800px; height:calc(800*9/16); margin:0 auto 20px; }
-#miniPlayer { position:fixed; bottom:20px; right:20px; width:200px; height:113px; display:none; z-index:9999; cursor:move; border:2px solid #ff0000; border-radius:8px; background:#000; }
+header span { font-size:12px; display:block; }
+
+.search-bar { display:flex; justify-content:center; margin:20px 0; flex-wrap:wrap; }
+.search-bar input { width:300px; padding:10px; border:none; border-radius:4px 0 0 4px; }
+.search-bar button { padding:10px 20px; border:none; background:#ff0000; color:white; cursor:pointer; border-radius:0 4px 4px 0; }
+
+#mainVideoWrapper {
+  position: relative;
+  width: 100%;
+  max-width: 800px;
+  height: 450px;
+  margin: 0 auto 20px auto;
+  background:#000;
+}
+
+#mainVideo { width:100%; height:100%; }
+#videoTitle { margin-top:10px; font-size:20px; text-align:center; }
+
 .video-list { display:flex; flex-wrap:wrap; justify-content:center; gap:20px; padding:20px; }
-.video-item { width:45%; max-width:300px; background:#222; padding:10px; border-radius:8px; cursor:pointer; }
-.video-item img { width:100%; border-radius:6px; }
-.video-item h3 { font-size:16px; margin:5px 0; }
-@media(max-width:500px){
-  .video-item { width:100%; }
-  #player { height:calc(100vw*9/16); }
+.video-item { width:100%; max-width:300px; background:#222; padding:10px; border-radius:8px; cursor:pointer; transition:0.2s; }
+.video-item:hover { transform:scale(1.03); }
+.video-item img { width:100%; border-radius:6px; margin-bottom:5px; }
+.video-item h3 { font-size:16px; margin:5px 0; color:#fff; }
+
+.music-control, .premium-btn { position:fixed; right:20px; background:#ff0000; border:none; padding:10px 15px; border-radius:50px; color:#fff; cursor:pointer; font-weight:bold; z-index:999; margin-bottom:10px; }
+.premium-btn { bottom:70px; }
+.music-control { bottom:20px; }
+
+.video-item button { margin-right:5px; background:#ff0000; border:none; color:#fff; padding:5px 10px; border-radius:5px; cursor:pointer; }
+
+.toast {
+  position: fixed;
+  bottom: 90px;
+  right: 20px;
+  background: rgba(255,0,0,0.9);
+  padding: 10px 20px;
+  border-radius: 8px;
+  color: #fff;
+  font-weight: bold;
+  opacity:0;
+  pointer-events:none;
+  transition: opacity 0.5s ease;
+  z-index:1000;
+}
+
+@media(max-width:900px){ 
+  .video-list{flex-direction:column; align-items:center;} 
+  .video-item{width:90%;} 
+  #mainVideoWrapper { height:300px; }
+}
+@media(max-width:600px){ 
+  #mainVideoWrapper { height:200px; }
 }
 </style>
 </head>
 <body>
 
 <header>
-  <h1>YouTube – Trùng Khánh Phát Triển, Gia Lai, Việt Nam</h1>
+  <div style="display:flex;align-items:center;">
+    <img src="https://upload.wikimedia.org/wikipedia/commons/b/b8/YouTube_Logo_2017.svg" alt="Logo">
+    <div>
+      <h1>YouTube – của Trùng Khánh</h1>
+      <span>Gia Lai, Việt Nam</span>
+    </div>
+  </div>
 </header>
 
 <div class="search-bar">
@@ -34,94 +81,122 @@ header h1 { margin:0; font-size:24px; }
   <button onclick="searchVideos()">Tìm kiếm</button>
 </div>
 
-<div id="player"></div>
-<div id="miniPlayer"></div>
+<div id="mainVideoWrapper">
+  <div id="mainVideo"></div>
+  <div id="videoTitle"></div>
+</div>
+
 <div class="video-list" id="videoList"></div>
+
+<audio id="backgroundMusic" loop>
+  <source src="https://www.soundhelix.com/examples/mp3/SoundHelix-Song-1.mp3" type="audio/mpeg">
+</audio>
+
+<button class="premium-btn" onclick="togglePremium()">Bật/Tắt Premium</button>
+<button class="music-control" onclick="toggleMusic()">🔊 Nhạc nền</button>
+
+<div id="toast" class="toast"></div>
 
 <script src="https://www.youtube.com/iframe_api"></script>
 <script>
 let player;
-let miniPlayer = document.getElementById('miniPlayer');
-let videoList = document.getElementById('videoList');
+let userHasPremium=false;
+let currentTitle = '';
 let nextPageToken = '';
-const API_KEY = 'AIzaSyDW6rVth1UiO1vgTERxtZOLrq6tvGfH'; // API key của bạn
+let currentQuery = '';
+const music=document.getElementById('backgroundMusic');
+const toastEl = document.getElementById('toast');
 
-// Tạo YouTube Player lớn
-function onYouTubeIframeAPIReady(){
-  player = new YT.Player('player', {
-    height: '450',
-    width: '800',
-    videoId: '',
-    playerVars: { autoplay:0, controls:1, modestbranding:1 }
+function showToast(message){
+  toastEl.innerText = message;
+  toastEl.style.opacity = '1';
+  setTimeout(()=>{ toastEl.style.opacity = '0'; },2000);
+}
+
+function onYouTubeIframeAPIReady(){ 
+  player = new YT.Player('mainVideo', { height:'100%', width:'100%', videoId:'', playerVars:{autoplay:0, controls:1, modestbranding:1, rel:0} }); 
+}
+
+function loadVideo(videoId, title){
+  player.loadVideoById(videoId);
+  currentTitle=title;
+  document.getElementById('videoTitle').innerText=title;
+}
+
+function toggleMusic(){
+  if(!userHasPremium){ music.pause(); showToast("Bật Premium để nghe nhạc nền!"); return; }
+  music.paused ? (music.play(), showToast("Nhạc nền đang phát")) : (music.pause(), showToast("Nhạc nền tạm dừng"));
+}
+
+function togglePremium(){ 
+  userHasPremium=!userHasPremium; 
+  showToast(userHasPremium ? "Premium ON" : "Premium OFF");
+}
+
+function likeVideo(videoId){ showToast("Đã Like video!"); }
+function shareVideo(videoId){ 
+  navigator.clipboard.writeText(`https://www.youtube.com/watch?v=${videoId}`);
+  showToast("Link đã copy: https://www.youtube.com/watch?v="+videoId); 
+}
+
+const API_KEY='AIzaSyAfS9grcQmWfJK1DH74CBADp5Zk1v92r54';
+
+async function searchVideos(pageToken=''){
+  const query = document.getElementById('searchQuery').value;
+  if(!query) return showToast('Nhập từ khóa!');
+  currentQuery = query;
+
+  try {
+    const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&q=${encodeURIComponent(query)}&maxResults=12&key=${API_KEY}&pageToken=${pageToken}`;
+    const response = await fetch(url);
+    const data = await response.json();
+
+    nextPageToken = data.nextPageToken || '';
+    let videos = data.items.filter(v => v.id && v.id.videoId);
+
+    if(videos.length === 0){
+      showToast('Không tìm thấy video. Hiển thị demo.');
+      videos = [
+        {id:{videoId:'dQw4w9WgXcQ'}, snippet:{title:'Video Demo 1', thumbnails:{medium:{url:'https://img.youtube.com/vi/dQw4w9WgXcQ/mqdefault.jpg'}}}},
+        {id:{videoId:'3JZ_D3ELwOQ'}, snippet:{title:'Video Demo 2', thumbnails:{medium:{url:'https://img.youtube.com/vi/3JZ_D3ELwOQ/mqdefault.jpg'}}}}
+      ];
+    }
+
+    if(!pageToken) loadVideo(videos[0].id.videoId, videos[0].snippet.title);
+
+    appendVideos(videos);
+
+  } catch(err){
+    console.error(err);
+    showToast('Lỗi tìm kiếm video. Hiển thị demo.');
+  }
+}
+
+function appendVideos(videos){
+  const videoList = document.getElementById('videoList');
+  videos.forEach(video=>{
+    const div = document.createElement('div');
+    div.className = 'video-item';
+    const thumb = video.snippet.thumbnails.medium.url;
+    div.innerHTML=`
+      <img src="${thumb}" alt="${video.snippet.title}">
+      <h3>${video.snippet.title}</h3>
+      <button onclick="event.stopPropagation(); likeVideo('${video.id.videoId}')">👍 Like</button>
+      <button onclick="event.stopPropagation(); shareVideo('${video.id.videoId}')">🔗 Share</button>`;
+    div.onclick = ()=>{ loadVideo(video.id.videoId, video.snippet.title); }
+    videoList.appendChild(div);
   });
 }
 
-// Load video lớn và mini
-function loadVideo(videoId){
-  if(player && videoId) player.loadVideoById(videoId);
-  miniPlayer.innerHTML = `<iframe width="100%" height="100%" src="https://www.youtube.com/embed/${videoId}?autoplay=1&controls=1" frameborder="0" allowfullscreen></iframe>`;
-}
-
-// Tìm kiếm video
-async function searchVideos(pageToken=''){
-  const query = document.getElementById('searchQuery').value;
-  if(!query){ alert("Nhập từ khóa!"); return; }
-  if(!pageToken) videoList.innerHTML=''; // Xóa danh sách cũ nếu lần đầu
-  const url = `https://www.googleapis.com/youtube/v3/search?part=snippet&type=video&q=${encodeURIComponent(query)}&maxResults=12&pageToken=${pageToken}&key=${API_KEY}`;
-  try{
-    const response = await fetch(url);
-    const data = await response.json();
-    nextPageToken = data.nextPageToken || '';
-    if(data.items && data.items.length>0){
-      data.items.forEach(video=>{
-        const div = document.createElement('div');
-        div.className = 'video-item';
-        div.innerHTML = `
-          <img src="${video.snippet.thumbnails.medium.url}" alt="${video.snippet.title}">
-          <h3>${video.snippet.title}</h3>`;
-        div.onclick = ()=>loadVideo(video.id.videoId);
-        videoList.appendChild(div);
-      });
-    } else {
-      alert("Không tìm thấy video!");
-    }
-  } catch(err){
-    console.error(err);
-    alert("Lỗi khi tìm kiếm video!");
-  }
-}
-
 // Infinite scroll
-window.onscroll = function(){
-  if(window.innerHeight + window.scrollY >= document.body.scrollHeight - 200){
-    if(nextPageToken){
-      searchVideos(nextPageToken);
-    }
-  }
-  // PiP mini player hiện khi scroll
-  if(window.scrollY > 300){
-    miniPlayer.style.display='block';
-  } else {
-    miniPlayer.style.display='none';
-  }
-};
+window.addEventListener('scroll', ()=>{
+  const scrollable = document.documentElement.scrollHeight - window.innerHeight;
+  const scrolled = window.scrollY;
 
-// Kéo thả mini player
-let isDragging = false, offsetX, offsetY;
-miniPlayer.addEventListener('mousedown', e=>{
-  isDragging = true;
-  offsetX = e.offsetX;
-  offsetY = e.offsetY;
-});
-document.addEventListener('mousemove', e=>{
-  if(isDragging){
-    miniPlayer.style.right='auto';
-    miniPlayer.style.left=(e.clientX-offsetX)+'px';
-    miniPlayer.style.top=(e.clientY-offsetY)+'px';
+  if(scrolled / scrollable > 0.8 && nextPageToken){
+    searchVideos(nextPageToken);
+    nextPageToken = ''; // tránh gọi nhiều lần
   }
-});
-document.addEventListener('mouseup', e=>{
-  isDragging=false;
 });
 </script>
 </body>
