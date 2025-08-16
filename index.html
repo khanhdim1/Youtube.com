@@ -16,15 +16,20 @@ header span { font-size:12px; display:block; }
 .search-bar button { padding:10px 20px; border:none; background:#ff0000; color:white; cursor:pointer; border-radius:0 4px 4px 0; }
 
 #mainVideoWrapper {
-  position: relative;
   width: 100%;
-  max-width: 800px;
-  height: 450px;
-  margin: 0 auto 20px auto;
+  position: relative;
+  padding-top: 56.25%; /* 16:9 ratio */
   background:#000;
+  margin-bottom: 20px;
 }
 
-#mainVideo { width:100%; height:100%; }
+#mainVideo {
+  position: absolute;
+  top:0; left:0;
+  width:100%;
+  height:100%;
+}
+
 #videoTitle { margin-top:10px; font-size:20px; text-align:center; }
 
 .video-list { display:flex; flex-wrap:wrap; justify-content:center; gap:20px; padding:20px; }
@@ -57,10 +62,10 @@ header span { font-size:12px; display:block; }
 @media(max-width:900px){ 
   .video-list{flex-direction:column; align-items:center;} 
   .video-item{width:90%;} 
-  #mainVideoWrapper { height:300px; }
+  #mainVideoWrapper { padding-top:56.25%; }
 }
 @media(max-width:600px){ 
-  #mainVideoWrapper { height:200px; }
+  #mainVideoWrapper { padding-top:56.25%; }
 }
 </style>
 </head>
@@ -83,8 +88,8 @@ header span { font-size:12px; display:block; }
 
 <div id="mainVideoWrapper">
   <div id="mainVideo"></div>
-  <div id="videoTitle"></div>
 </div>
+<div id="videoTitle"></div>
 
 <div class="video-list" id="videoList"></div>
 
@@ -123,15 +128,61 @@ function loadVideo(videoId, title){
   document.getElementById('videoTitle').innerText=title;
 }
 
-function toggleMusic(){
-  if(!userHasPremium){ music.pause(); showToast("Bật Premium để nghe nhạc nền!"); return; }
-  music.paused ? (music.play(), showToast("Nhạc nền đang phát")) : (music.pause(), showToast("Nhạc nền tạm dừng"));
+// Lưu trạng thái nhạc
+function saveMusicState(){
+  localStorage.setItem('musicPlaying', !music.paused);
 }
 
-function togglePremium(){ 
-  userHasPremium=!userHasPremium; 
-  showToast(userHasPremium ? "Premium ON" : "Premium OFF");
+// Toggle nhạc
+function toggleMusic(){
+  if(!userHasPremium){ 
+    music.pause(); 
+    showToast("Bật Premium để nghe nhạc nền!"); 
+    saveMusicState();
+    return; 
+  }
+  
+  if(music.paused){
+    music.play().then(()=>{ saveMusicState(); }).catch(()=>{});
+    showToast("Nhạc nền đang phát");
+  } else {
+    music.pause();
+    saveMusicState();
+    showToast("Nhạc nền tạm dừng");
+  }
 }
+
+// Toggle Premium
+function togglePremium(){ 
+  userHasPremium = !userHasPremium;
+  localStorage.setItem('userHasPremium', userHasPremium);
+  showToast(userHasPremium ? "Premium ON" : "Premium OFF");
+  
+  if(userHasPremium && music.paused){
+    music.play().catch(()=>{});
+    saveMusicState();
+  } else if(!userHasPremium){
+    music.pause();
+    saveMusicState();
+  }
+}
+
+// Khi load trang
+window.addEventListener('load', ()=>{
+  userHasPremium = localStorage.getItem('userHasPremium') === 'true';
+  const shouldPlay = localStorage.getItem('musicPlaying') === 'true';
+  
+  // Chờ tương tác người dùng nếu trình duyệt chặn autoplay
+  if(userHasPremium && shouldPlay){
+    const playMusic = () => {
+      music.play().catch(()=>{});
+      window.removeEventListener('click', playMusic);
+      window.removeEventListener('touchstart', playMusic);
+    }
+    window.addEventListener('click', playMusic);
+    window.addEventListener('touchstart', playMusic);
+  }
+});
 
 function likeVideo(videoId){ showToast("Đã Like video!"); }
 function shareVideo(videoId){ 
