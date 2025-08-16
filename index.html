@@ -175,7 +175,7 @@ function shareVideo(videoId){
   showToast("Link đã copy: https://www.youtube.com/watch?v="+videoId); 
 }
 
-const API_KEY='AIzaSyAfS9grcQmWfJK1DH74CBADp5Zk1v92r54';
+const API_KEY='AIzaSyCD8MJRM3uTr78U_wHMC4TJsHKPxmW9jrw';
 async function searchVideos(pageToken=''){
   const query = document.getElementById('searchQuery').value;
   if(!query) return showToast('Nhập từ khóa!');
@@ -198,9 +198,7 @@ async function searchVideos(pageToken=''){
     }
 
     if(!pageToken) loadVideo(videos[0].id.videoId, videos[0].snippet.title);
-
     appendVideos(videos);
-
   } catch(err){
     console.error(err);
     showToast('Lỗi tìm kiếm video. Hiển thị demo.');
@@ -235,7 +233,6 @@ setInterval(()=>{
 window.addEventListener('load', ()=>{
   userHasPremium = localStorage.getItem('userHasPremium') === 'true';
   
-  // Resume nhạc
   currentTrack = parseInt(localStorage.getItem('musicTrack')) || 0;
   music.src = playlist[currentTrack];
   music.currentTime = parseFloat(localStorage.getItem('musicCurrentTime')) || 0;
@@ -246,7 +243,6 @@ window.addEventListener('load', ()=>{
     window.addEventListener('touchstart', playMusic);
   }
 
-  // Resume video
   const savedVideoId = localStorage.getItem('videoId');
   const savedTime = parseFloat(localStorage.getItem('videoTime')) || 0;
   const savedState = parseInt(localStorage.getItem('videoState')) || 2;
@@ -259,7 +255,7 @@ window.addEventListener('load', ()=>{
 // Next video countdown
 function startNextCountdown(){
   if(!relatedVideos || relatedVideos.length===0) return;
-  let countdown = 5; // giây
+  let countdown = 5;
   countdownEl.style.display = 'block';
   countdownEl.innerText = `Chuyển video tiếp theo trong ${countdown}s`;
   clearInterval(countdownTimer);
@@ -276,7 +272,6 @@ function startNextCountdown(){
     }
   },1000);
 }
-
 </script>
 </body>
 </html>
